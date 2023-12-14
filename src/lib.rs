@@ -4,6 +4,7 @@
 use bevy::prelude::*;
 pub use bevy_console_derive::ConsoleCommand;
 use bevy_egui::EguiPlugin;
+pub use clap;
 
 use crate::commands::clear::{clear_command, ClearCommand};
 use crate::commands::exit::{exit_command, ExitCommand};

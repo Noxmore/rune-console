@@ -226,7 +226,7 @@ pub struct ConsoleConfiguration {
     /// Console width
     pub width: f32,
     /// Registered console commands
-    pub commands: BTreeMap<&'static str, clap::Command>,
+    pub commands: BTreeMap<String, clap::Command>,
     /// Number of commands to store in history
     pub history_size: usize,
     ///Line prefix symbol
@@ -291,7 +291,7 @@ impl AddConsoleCommand for App {
                     name
                 );
             }
-            config.commands.insert(name, command);
+            config.commands.insert(name.into(), command);
         };
 
         self.add_systems(Startup, sys)

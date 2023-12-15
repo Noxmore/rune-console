@@ -5,20 +5,24 @@ use bevy::ecs::{
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 use bevy::{input::keyboard::KeyboardInput, prelude::*};
-use bevy_egui::egui::{self, Align, ScrollArea, TextEdit};
+use bevy_egui::egui::{self, Align, ScrollArea, TextEdit, Stroke};
 use bevy_egui::egui::{text::LayoutJob, text_edit::CCursorRange};
 use bevy_egui::egui::{Context, Id};
 use bevy_egui::{
     egui::{epaint::text::cursor::CCursor, Color32, FontId, TextFormat},
     EguiContexts,
 };
-use clap::{builder::StyledStr, CommandFactory, FromArgMatches};
+use clap::{CommandFactory, FromArgMatches};
 use shlex::Shlex;
 use std::collections::{BTreeMap, VecDeque};
 use std::marker::PhantomData;
 use std::mem;
 
 use crate::ConsoleSet;
+
+pub static OK_COLOR: Color32 = Color32::from_rgb(100, 140, 28);
+pub static WARN_COLOR: Color32 = Color32::from_rgb(220, 190, 40);
+pub static ERROR_COLOR: Color32 = Color32::from_rgb(220, 95, 90);
 
 type ConsoleCommandEnteredReaderSystemParam = EventReader<'static, 'static, ConsoleCommandEntered>;
 
@@ -76,26 +80,26 @@ impl<'w, T> ConsoleCommand<'w, T> {
 
     /// Print `[ok]` in the console.
     pub fn ok(&mut self) {
-        self.console_line.send(PrintConsoleLine::new("[ok]".into()));
+        self.console_line.send(PrintConsoleLine::new(ConsoleLineComponent::new("[ok]").color(OK_COLOR)));
     }
 
     /// Print `[failed]` in the console.
     pub fn failed(&mut self) {
         self.console_line
-            .send(PrintConsoleLine::new("[failed]".into()));
+            .send(PrintConsoleLine::new(ConsoleLineComponent::new("[failed]").color(ERROR_COLOR)));
     }
 
     /// Print a reply in the console.
     ///
     /// See [`reply!`](crate::reply) for usage with the [`format!`] syntax.
-    pub fn reply(&mut self, msg: impl Into<StyledStr>) {
+    pub fn reply(&mut self, msg: impl Into<ConsoleLine>) {
         self.console_line.send(PrintConsoleLine::new(msg.into()));
     }
 
     /// Print a reply in the console followed by `[ok]`.
     ///
     /// See [`reply_ok!`](crate::reply_ok) for usage with the [`format!`] syntax.
-    pub fn reply_ok(&mut self, msg: impl Into<StyledStr>) {
+    pub fn reply_ok(&mut self, msg: impl Into<ConsoleLine>) {
         self.console_line.send(PrintConsoleLine::new(msg.into()));
         self.ok();
     }
@@ -103,7 +107,7 @@ impl<'w, T> ConsoleCommand<'w, T> {
     /// Print a reply in the console followed by `[failed]`.
     ///
     /// See [`reply_failed!`](crate::reply_failed) for usage with the [`format!`] syntax.
-    pub fn reply_failed(&mut self, msg: impl Into<StyledStr>) {
+    pub fn reply_failed(&mut self, msg: impl Into<ConsoleLine>) {
         self.console_line.send(PrintConsoleLine::new(msg.into()));
         self.failed();
     }
@@ -166,7 +170,7 @@ unsafe impl<T: Command> SystemParam for ConsoleCommand<'_, T> {
                         return Some(T::from_arg_matches(&matches));
                     }
                     Err(err) => {
-                        console_line.send(PrintConsoleLine::new(err.render()));
+                        console_line.send(PrintConsoleLine::new(ConsoleLineComponent::new(err.render().to_string()).color(ERROR_COLOR)));
                         return Some(Err(err));
                     }
                 }
@@ -190,16 +194,16 @@ pub struct ConsoleCommandEntered {
 }
 
 /// Events to print to the console.
-#[derive(Clone, Debug, Eq, Event, PartialEq)]
+#[derive(Clone, Debug, Event, PartialEq)]
 pub struct PrintConsoleLine {
     /// Console line
-    pub line: StyledStr,
+    pub line: ConsoleLine,
 }
 
 impl PrintConsoleLine {
     /// Creates a new console line to print.
-    pub const fn new(line: StyledStr) -> Self {
-        Self { line }
+    pub fn new(line: impl Into<ConsoleLine>) -> Self {
+        Self { line: line.into() }
     }
 }
 
@@ -309,8 +313,8 @@ pub struct ConsoleOpen {
 #[derive(Resource)]
 pub(crate) struct ConsoleState {
     pub(crate) buf: String,
-    pub(crate) scrollback: Vec<StyledStr>,
-    pub(crate) history: VecDeque<StyledStr>,
+    pub(crate) scrollback: Vec<ConsoleLine>,
+    pub(crate) history: VecDeque<String>,
     pub(crate) history_index: usize,
 }
 
@@ -319,9 +323,114 @@ impl Default for ConsoleState {
         ConsoleState {
             buf: String::default(),
             scrollback: Vec::new(),
-            history: VecDeque::from([StyledStr::new()]),
+            history: VecDeque::from([String::new()]),
             history_index: 0,
         }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ConsoleLineComponent {
+    pub text: String,
+    pub color: Color32,
+    pub background: Color32,
+    pub italics: bool,
+    pub underline: Stroke,
+    pub strikethrough: Stroke,
+}
+
+impl Default for ConsoleLineComponent {
+	fn default() -> Self {
+		Self {
+			text: default(),
+			color: Color32::WHITE,
+			background: default(),
+			italics: default(),
+			underline: default(),
+			strikethrough: default(),
+		}
+	}
+}
+
+impl std::fmt::Display for ConsoleLineComponent {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.text.fmt(f)
+    }
+}
+
+impl From<String> for ConsoleLineComponent {
+    fn from(value: String) -> Self {
+        Self { text: value, ..default() }
+    }
+}
+impl From<&str> for ConsoleLineComponent {
+    fn from(value: &str) -> Self {
+        Self { text: value.into(), ..default() }
+    }
+}
+
+impl ConsoleLineComponent {
+    pub fn new(text: impl ToString) -> Self {
+        Self {
+            text: text.to_string(),
+            ..default()
+        }
+    }
+
+    pub fn color(mut self, value: impl Into<Color32>) -> Self {
+        self.color = value.into();
+        self
+    }
+    pub fn background(mut self, value: impl Into<Color32>) -> Self {
+        self.background = value.into();
+        self
+    }
+    pub fn italics(mut self, value: bool) -> Self {
+        self.italics = value;
+        self
+    }
+    pub fn underline(mut self, value: impl Into<Stroke>) -> Self {
+        self.underline = value.into();
+        self
+    }
+    pub fn strikethrough(mut self, value: impl Into<Stroke>) -> Self {
+        self.strikethrough = value.into();
+        self
+    }
+}
+
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct ConsoleLine {
+    pub components: Vec<ConsoleLineComponent>,
+}
+
+impl std::fmt::Display for ConsoleLine {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for component in &self.components {
+            component.fmt(f)?;
+        }
+        Ok(())
+    }
+}
+
+impl From<String> for ConsoleLine {
+    fn from(value: String) -> Self {
+        Self { components: vec![value.into()] }
+    }
+}
+impl From<&str> for ConsoleLine {
+    fn from(value: &str) -> Self {
+        Self { components: vec![value.into()] }
+    }
+}
+impl From<ConsoleLineComponent> for ConsoleLine {
+    fn from(value: ConsoleLineComponent) -> Self {
+        Self { components: vec![value] }
+    }
+}
+impl From<Vec<ConsoleLineComponent>> for ConsoleLine {
+    fn from(value: Vec<ConsoleLineComponent>) -> Self {
+        Self { components: value }
     }
 }
 
@@ -367,11 +476,21 @@ pub(crate) fn console_ui(
                                 for line in &state.scrollback {
                                     let mut text = LayoutJob::default();
 
-                                    text.append(
-                                        &line.to_string(), //TOOD: once clap supports custom styling use it here
-                                        0f32,
-                                        TextFormat::simple(FontId::monospace(14f32), Color32::GRAY),
-                                    );
+                                    for component in &line.components {
+                                        text.append(
+                                            &component.text,
+                                            0f32,
+                                            TextFormat {
+                                                font_id: FontId::monospace(14f32),
+                                                color: component.color,
+                                                background: component.background,
+                                                italics: component.italics,
+                                                underline: component.underline,
+                                                strikethrough: component.strikethrough,
+                                                ..default()
+                                            },
+                                        );
+                                    }
 
                                     ui.label(text);
                                 }
@@ -398,7 +517,7 @@ pub(crate) fn console_ui(
                         && ui.input(|i| i.key_pressed(egui::Key::Enter))
                     {
                         if state.buf.trim().is_empty() {
-                            state.scrollback.push(StyledStr::new());
+                            state.scrollback.push(ConsoleLine::default());
                         } else {
                             let msg = format!("{}{}", config.symbol, state.buf);
                             state.scrollback.push(msg.into());
@@ -425,7 +544,11 @@ pub(crate) fn console_ui(
                                         config.commands.keys().collect::<Vec<_>>()
                                     );
 
-                                    state.scrollback.push("error: Invalid command".into());
+                                    state.scrollback.push(ConsoleLineComponent {
+                                        text: "error: Invalid command".into(),
+                                        color: ERROR_COLOR,
+                                        ..default()
+                                    }.into());
                                 }
                             }
 

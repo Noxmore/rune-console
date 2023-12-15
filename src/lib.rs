@@ -1,5 +1,4 @@
 #![doc = include_str ! ("../README.md")]
-#![deny(missing_docs)]
 
 use bevy::prelude::*;
 pub use bevy_console_derive::ConsoleCommand;
@@ -9,10 +8,12 @@ pub use clap;
 use crate::commands::clear::{clear_command, ClearCommand};
 use crate::commands::exit::{exit_command, ExitCommand};
 use crate::commands::help::{help_command, HelpCommand};
-pub use crate::console::{
+/* pub use crate::console::{
     AddConsoleCommand, Command, ConsoleCommand, ConsoleCommandEntered, ConsoleConfiguration,
     ConsoleOpen, NamedCommand, PrintConsoleLine, ToggleConsoleKey,
-};
+	ConsoleLine, ConsoleLineComponent,
+}; */
+pub use crate::console::*;
 // pub use color::{Style, StyledStr};
 
 use crate::console::{console_ui, receive_console_line, ConsoleState};

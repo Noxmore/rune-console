@@ -3,7 +3,7 @@ use bevy_console::{ConsoleCommandEntered, ConsolePlugin, ConsoleSet};
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, ConsolePlugin))
+        .add_plugins((DefaultPlugins, ConsolePlugin::default()))
         .add_systems(Update, raw_commands.in_set(ConsoleSet::Commands))
         .run();
 }

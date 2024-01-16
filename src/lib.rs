@@ -24,7 +24,11 @@ mod console;
 mod macros;
 
 /// Console plugin.
-pub struct ConsolePlugin;
+#[derive(Default)]
+pub struct ConsolePlugin {
+	/// Whether or not to add the egui plugin and render the console ui, useful to turn off for servers.
+	pub egui: bool,
+}
 
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
 /// The SystemSet for console/command related systems
@@ -60,7 +64,6 @@ impl Plugin for ConsolePlugin {
             .add_systems(
                 Update,
                 (
-                    console_ui.in_set(ConsoleSet::ConsoleUI),
                     receive_console_line.in_set(ConsoleSet::PostCommands),
                 ),
             )
@@ -74,9 +77,13 @@ impl Plugin for ConsolePlugin {
                 ),
             );
 
+		if self.egui {
+			app.add_systems(Update, console_ui.in_set(ConsoleSet::ConsoleUI));
+		}
+
         // Don't initialize an egui plugin if one already exists.
         // This can happen if another plugin is using egui and was installed before us.
-        if !app.is_plugin_added::<EguiPlugin>() {
+        if self.egui && !app.is_plugin_added::<EguiPlugin>() {
             app.add_plugins(EguiPlugin);
         }
     }

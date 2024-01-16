@@ -4,7 +4,7 @@ use clap::Parser;
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, ConsolePlugin))
+        .add_plugins((DefaultPlugins, ConsolePlugin::default()))
         .add_console_command::<LogCommand, _>(log_command)
         .run();
 }

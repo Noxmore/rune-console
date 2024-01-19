@@ -557,15 +557,6 @@ pub(crate) fn console_ui(
                         }
                     }
 
-                    // Clear on ctrl+l
-                    if keyboard_input_events
-                        .iter()
-                        .any(|&k| k.state.is_pressed() && k.key_code == Some(KeyCode::L))
-                        && (keys.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]))
-                    {
-                        state.scrollback.clear();
-                    }
-
                     // Handle up and down through history
                     if text_edit_response.has_focus()
                         && ui.input(|i| i.key_pressed(egui::Key::ArrowUp))

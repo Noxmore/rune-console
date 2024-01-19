@@ -246,7 +246,7 @@ impl Default for ConsoleConfiguration {
             height: 400.0,
             width: 800.0,
             commands: BTreeMap::new(),
-            history_size: 20,
+            history_size: 80,
             symbol: "$ ".to_owned(),
         }
     }
@@ -340,16 +340,16 @@ pub struct ConsoleLineComponent {
 }
 
 impl Default for ConsoleLineComponent {
-	fn default() -> Self {
-		Self {
-			text: default(),
-			color: Color32::WHITE,
-			background: default(),
-			italics: default(),
-			underline: default(),
-			strikethrough: default(),
-		}
-	}
+    fn default() -> Self {
+        Self {
+            text: default(),
+            color: Color32::WHITE,
+            background: default(),
+            italics: default(),
+            underline: default(),
+            strikethrough: default(),
+        }
+    }
 }
 
 impl std::fmt::Display for ConsoleLineComponent {
@@ -526,6 +526,7 @@ pub(crate) fn console_ui(
                             if state.history.len() > config.history_size + 1 {
                                 state.history.pop_back();
                             }
+                            state.history_index = 0;
 
                             let mut args = Shlex::new(&state.buf).collect::<Vec<_>>();
 

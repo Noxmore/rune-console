@@ -569,24 +569,20 @@ pub(crate) fn console_ui(
                                 .resizable(false)
                                 .constrain(false)
                                 .show(ctx, |ui| {
-                                    ScrollArea::vertical().stick_to_bottom(true).stick_to_right(true).show(ui, |ui|
-                                    {
-                                        for (i, (name, command)) in autocomplete_commands.into_iter().enumerate() {
-                                            let button_clicked = egui::Button::new(command.clone().render_usage().to_string().trim_start_matches("Usage: ")).frame(false).ui(ui).clicked();
-                                            let tab_pressed = i == 0 && keys.just_pressed(KeyCode::Tab);
-        
-                                            if button_clicked || tab_pressed {
-                                                state.buf = name.clone();
-                                                // Set the cursor at the end of the text (Awesome API here...)
-                                                if let Some(mut text_edit_state) = egui::TextEdit::load_state(ui.ctx(), text_edit.response.id) {
-                                                    let ccursor = egui::text::CCursor::new(state.buf.chars().count());
-                                                    text_edit_state.set_ccursor_range(Some(egui::text::CCursorRange::one(ccursor)));
-                                                    text_edit_state.store(ui.ctx(), text_edit.response.id);
-                                                    // ui.ctx().memory_mut(|mem| mem.request_focus(text_edit.response.id)); // give focus back to the `TextEdit`.
-                                                }
+                                    for (i, (name, command)) in autocomplete_commands.into_iter().enumerate() {
+                                        let button_clicked = egui::Button::new(command.clone().render_usage().to_string().trim_start_matches("Usage: ")).frame(false).ui(ui).clicked();
+                                        let tab_pressed = i == 0 && keys.just_pressed(KeyCode::Tab);
+    
+                                        if button_clicked || tab_pressed {
+                                            state.buf = name.clone();
+                                            // Set the cursor at the end of the text (Awesome API here...)
+                                            if let Some(mut text_edit_state) = egui::TextEdit::load_state(ui.ctx(), text_edit.response.id) {
+                                                let ccursor = egui::text::CCursor::new(state.buf.chars().count());
+                                                text_edit_state.set_ccursor_range(Some(egui::text::CCursorRange::one(ccursor)));
+                                                text_edit_state.store(ui.ctx(), text_edit.response.id);
                                             }
                                         }
-                                    });
+                                    }
                                 });
                         }
                     }

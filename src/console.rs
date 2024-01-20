@@ -5,7 +5,7 @@ use bevy::ecs::{
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 use bevy::{input::keyboard::KeyboardInput, prelude::*};
-use bevy_egui::egui::{self, Align, ScrollArea, TextEdit, Stroke};
+use bevy_egui::egui::{self, Align, ScrollArea, TextEdit, Stroke, Widget};
 use bevy_egui::egui::{text::LayoutJob, text_edit::CCursorRange};
 use bevy_egui::egui::{Context, Id};
 use bevy_egui::{
@@ -509,11 +509,11 @@ pub(crate) fn console_ui(
                     let text_edit = TextEdit::singleline(&mut state.buf)
                         .desired_width(f32::INFINITY)
                         .lock_focus(true)
-                        .font(egui::TextStyle::Monospace);
+                        .font(egui::TextStyle::Monospace)
+                        .show(ui);
 
                     // Handle enter
-                    let text_edit_response = ui.add(text_edit);
-                    if text_edit_response.lost_focus()
+                    if text_edit.response.lost_focus()
                         && ui.input(|i| i.key_pressed(egui::Key::Enter))
                     {
                         if state.buf.trim().is_empty() {
@@ -557,8 +557,42 @@ pub(crate) fn console_ui(
                         }
                     }
 
+                    // Autocomplete
+                    if !state.buf.is_empty() {
+                        let mut autocomplete_commands: Vec<(&String, &clap::Command)> = config.commands.iter().filter(|(name, _)| name.contains(&state.buf)).collect();
+                        autocomplete_commands.sort_by_cached_key(|(name, _)| strsim::levenshtein(&state.buf, *name));
+
+                        if !autocomplete_commands.is_empty() {
+                            egui::Window::new("console_autocomplete")
+                                .fixed_pos(text_edit.response.rect.left_bottom())
+                                .title_bar(false)
+                                .resizable(false)
+                                .constrain(false)
+                                .show(ctx, |ui| {
+                                    ScrollArea::vertical().stick_to_bottom(true).stick_to_right(true).show(ui, |ui|
+                                    {
+                                        for (i, (name, command)) in autocomplete_commands.into_iter().enumerate() {
+                                            let button_clicked = egui::Button::new(command.clone().render_usage().to_string().trim_start_matches("Usage: ")).frame(false).ui(ui).clicked();
+                                            let tab_pressed = i == 0 && keys.just_pressed(KeyCode::Tab);
+        
+                                            if button_clicked || tab_pressed {
+                                                state.buf = name.clone();
+                                                // Set the cursor at the end of the text (Awesome API here...)
+                                                if let Some(mut text_edit_state) = egui::TextEdit::load_state(ui.ctx(), text_edit.response.id) {
+                                                    let ccursor = egui::text::CCursor::new(state.buf.chars().count());
+                                                    text_edit_state.set_ccursor_range(Some(egui::text::CCursorRange::one(ccursor)));
+                                                    text_edit_state.store(ui.ctx(), text_edit.response.id);
+                                                    // ui.ctx().memory_mut(|mem| mem.request_focus(text_edit.response.id)); // give focus back to the `TextEdit`.
+                                                }
+                                            }
+                                        }
+                                    });
+                                });
+                        }
+                    }
+
                     // Handle up and down through history
-                    if text_edit_response.has_focus()
+                    if text_edit.response.has_focus()
                         && ui.input(|i| i.key_pressed(egui::Key::ArrowUp))
                         && state.history.len() > 1
                         && state.history_index < state.history.len() - 1
@@ -571,8 +605,8 @@ pub(crate) fn console_ui(
                         let previous_item = state.history.get(state.history_index).unwrap().clone();
                         state.buf = previous_item.to_string();
 
-                        set_cursor_pos(ui.ctx(), text_edit_response.id, state.buf.len());
-                    } else if text_edit_response.has_focus()
+                        set_cursor_pos(ui.ctx(), text_edit.response.id, state.buf.len());
+                    } else if text_edit.response.has_focus()
                         && ui.input(|i| i.key_pressed(egui::Key::ArrowDown))
                         && state.history_index > 0
                     {
@@ -580,11 +614,11 @@ pub(crate) fn console_ui(
                         let next_item = state.history.get(state.history_index).unwrap().clone();
                         state.buf = next_item.to_string();
 
-                        set_cursor_pos(ui.ctx(), text_edit_response.id, state.buf.len());
+                        set_cursor_pos(ui.ctx(), text_edit.response.id, state.buf.len());
                     }
 
                     // Focus on input
-                    ui.memory_mut(|m| m.request_focus(text_edit_response.id));
+                    ui.memory_mut(|m| m.request_focus(text_edit.response.id));
                 });
             });
     }

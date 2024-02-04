@@ -184,7 +184,9 @@ unsafe impl<T: Command> SystemParam for ConsoleCommand<'_, T> {
         }
     }
 }
+
 /// Parsed raw console command into `command` and `args`.
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone, Debug, Event)]
 pub struct ConsoleCommandEntered {
     /// the command definition
@@ -194,6 +196,7 @@ pub struct ConsoleCommandEntered {
 }
 
 /// Events to print to the console.
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone, Debug, Event, PartialEq)]
 pub struct PrintConsoleLine {
     /// Console line
@@ -208,6 +211,7 @@ impl PrintConsoleLine {
 }
 
 /// Key for toggling the console.
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Copy, Clone)]
 pub enum ToggleConsoleKey {
     /// Keycode supported by bevy_input
@@ -329,6 +333,7 @@ impl Default for ConsoleState {
     }
 }
 
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, PartialEq)]
 pub struct ConsoleLineComponent {
     pub text: String,
@@ -399,6 +404,7 @@ impl ConsoleLineComponent {
     }
 }
 
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct ConsoleLine {
     pub components: Vec<ConsoleLineComponent>,

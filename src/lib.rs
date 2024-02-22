@@ -46,11 +46,6 @@ pub enum ConsoleSet {
     PostCommands,
 }
 
-/// Run condition which does not run any command systems if no command was entered
-fn have_commands(commands: EventReader<ConsoleCommandEntered>) -> bool {
-    !commands.is_empty()
-}
-
 impl Plugin for ConsolePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ConsoleConfiguration>()
@@ -71,8 +66,7 @@ impl Plugin for ConsolePlugin {
                 Update,
                 (
                     ConsoleSet::Commands
-                        .after(ConsoleSet::ConsoleUI)
-                        .run_if(have_commands),
+                        .after(ConsoleSet::ConsoleUI),
                     ConsoleSet::PostCommands.after(ConsoleSet::Commands),
                 ),
             );

@@ -5,8 +5,8 @@ use bevy::ecs::{
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 use bevy::{input::keyboard::KeyboardInput, prelude::*};
-use bevy_egui::egui::{self, Align, ScrollArea, TextEdit, Stroke, Widget};
-use bevy_egui::egui::{text::LayoutJob, text_edit::CCursorRange};
+use bevy_egui::egui::{self, text::CCursorRange, Align, ScrollArea, Stroke, TextEdit, Widget};
+use bevy_egui::egui::text::LayoutJob;
 use bevy_egui::egui::{Context, Id};
 use bevy_egui::{
     egui::{epaint::text::cursor::CCursor, Color32, FontId, TextFormat},
@@ -210,21 +210,11 @@ impl PrintConsoleLine {
     }
 }
 
-/// Key for toggling the console.
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Copy, Clone)]
-pub enum ToggleConsoleKey {
-    /// Keycode supported by bevy_input
-    KeyCode(KeyCode),
-    /// Raw scan code
-    ScanCode(u32),
-}
-
 /// Console configuration
 #[derive(Clone, Resource)]
 pub struct ConsoleConfiguration {
     /// Registered keys for toggling the console
-    pub keys: Vec<ToggleConsoleKey>,
+    pub toggle_keys: Vec<KeyCode>,
     /// Left position
     pub left_pos: f32,
     /// Top position
@@ -244,7 +234,7 @@ pub struct ConsoleConfiguration {
 impl Default for ConsoleConfiguration {
     fn default() -> Self {
         Self {
-            keys: vec![ToggleConsoleKey::KeyCode(KeyCode::Grave)],
+            toggle_keys: vec![KeyCode::Backquote],
             left_pos: 200.0,
             top_pos: 100.0,
             height: 400.0,
@@ -444,7 +434,7 @@ pub(crate) fn console_ui(
     mut egui_context: EguiContexts,
     config: Res<ConsoleConfiguration>,
     mut keyboard_input_events: EventReader<KeyboardInput>,
-    keys: Res<Input<KeyCode>>,
+    keys: Res<ButtonInput<KeyCode>>,
     mut state: ResMut<ConsoleState>,
     mut command_entered: EventWriter<ConsoleCommandEntered>,
     mut console_open: ResMut<ConsoleOpen>,
@@ -454,7 +444,7 @@ pub(crate) fn console_ui(
 
     let pressed = keyboard_input_events
         .iter()
-        .any(|code| console_key_pressed(code, &config.keys));
+        .any(|code| console_key_pressed(code, &config.toggle_keys));
 
     // always close if console open
     // avoid opening console if typing in another text input
@@ -583,8 +573,8 @@ pub(crate) fn console_ui(
                                             state.buf = name.clone();
                                             // Set the cursor at the end of the text (Awesome API here...)
                                             if let Some(mut text_edit_state) = egui::TextEdit::load_state(ui.ctx(), text_edit.response.id) {
-                                                let ccursor = egui::text::CCursor::new(state.buf.chars().count());
-                                                text_edit_state.set_ccursor_range(Some(egui::text::CCursorRange::one(ccursor)));
+                                                let ccursor = CCursor::new(state.buf.chars().count());
+                                                text_edit_state.cursor.set_char_range(Some(CCursorRange::one(ccursor)));
                                                 text_edit_state.store(ui.ctx(), text_edit.response.id);
                                             }
                                         }
@@ -638,27 +628,15 @@ pub(crate) fn receive_console_line(
 
 fn console_key_pressed(
     keyboard_input: &KeyboardInput,
-    configured_keys: &[ToggleConsoleKey],
+    configured_keys: &[KeyCode],
 ) -> bool {
     if !keyboard_input.state.is_pressed() {
         return false;
     }
 
     for configured_key in configured_keys {
-        match configured_key {
-            ToggleConsoleKey::KeyCode(configured_key_code) => match keyboard_input.key_code {
-                None => continue,
-                Some(pressed_key) => {
-                    if configured_key_code == &pressed_key {
-                        return true;
-                    }
-                }
-            },
-            ToggleConsoleKey::ScanCode(configured_scan_code) => {
-                if &keyboard_input.scan_code == configured_scan_code {
-                    return true;
-                }
-            }
+        if configured_key == &keyboard_input.key_code {
+            return true;
         }
     }
 
@@ -667,72 +645,42 @@ fn console_key_pressed(
 
 fn set_cursor_pos(ctx: &Context, id: Id, pos: usize) {
     if let Some(mut state) = TextEdit::load_state(ctx, id) {
-        state.set_ccursor_range(Some(CCursorRange::one(CCursor::new(pos))));
+        state.cursor.set_char_range(Some(CCursorRange::one(CCursor::new(pos))));
         state.store(ctx, id);
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use bevy::input::ButtonState;
+    use bevy::input::{keyboard::Key, ButtonState};
 
     use super::*;
 
     #[test]
-    fn test_console_key_pressed_scan_code() {
+    fn test_console_key_pressed() {
         let input = KeyboardInput {
-            scan_code: 41,
-            key_code: None,
+            key_code: KeyCode::Backquote,
+            logical_key: Key::Character("`".into()),
             state: ButtonState::Pressed,
             window: Entity::PLACEHOLDER,
         };
 
-        let config = vec![ToggleConsoleKey::ScanCode(41)];
+        let config = vec![KeyCode::Backquote];
 
         let result = console_key_pressed(&input, &config);
         assert!(result);
     }
 
     #[test]
-    fn test_console_wrong_key_pressed_scan_code() {
+    fn test_console_wrong_key_pressed() {
         let input = KeyboardInput {
-            scan_code: 42,
-            key_code: None,
+            key_code: KeyCode::KeyA,
+            logical_key: Key::Character("a".into()),
             state: ButtonState::Pressed,
             window: Entity::PLACEHOLDER,
         };
 
-        let config = vec![ToggleConsoleKey::ScanCode(41)];
-
-        let result = console_key_pressed(&input, &config);
-        assert!(!result);
-    }
-
-    #[test]
-    fn test_console_key_pressed_key_code() {
-        let input = KeyboardInput {
-            scan_code: 0,
-            key_code: Some(KeyCode::Grave),
-            state: ButtonState::Pressed,
-            window: Entity::PLACEHOLDER,
-        };
-
-        let config = vec![ToggleConsoleKey::KeyCode(KeyCode::Grave)];
-
-        let result = console_key_pressed(&input, &config);
-        assert!(result);
-    }
-
-    #[test]
-    fn test_console_wrong_key_pressed_key_code() {
-        let input = KeyboardInput {
-            scan_code: 0,
-            key_code: Some(KeyCode::A),
-            state: ButtonState::Pressed,
-            window: Entity::PLACEHOLDER,
-        };
-
-        let config = vec![ToggleConsoleKey::KeyCode(KeyCode::Grave)];
+        let config = vec![KeyCode::Backquote];
 
         let result = console_key_pressed(&input, &config);
         assert!(!result);
@@ -741,13 +689,13 @@ mod tests {
     #[test]
     fn test_console_key_right_key_but_not_pressed() {
         let input = KeyboardInput {
-            scan_code: 0,
-            key_code: Some(KeyCode::Grave),
+            key_code: KeyCode::Backquote,
+            logical_key: Key::Character("`".into()),
             state: ButtonState::Released,
             window: Entity::PLACEHOLDER,
         };
 
-        let config = vec![ToggleConsoleKey::KeyCode(KeyCode::Grave)];
+        let config = vec![KeyCode::Backquote];
 
         let result = console_key_pressed(&input, &config);
         assert!(!result);
